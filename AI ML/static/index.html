@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-commerce Customer Segmentation &mdash; AI &amp; ML Capstone</title>
+<meta name="project-name" content="E-commerce Customer Segmentation">
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">&#128200;</div>
+      <div>
+        <h1>E-commerce Customer Segmentation</h1>
+      </div>
+    </div>
+    <nav id="nav">
+      <button class="nav-btn active" data-section="dashboard"><span>&#9632;</span> Dashboard</button>
+      <button class="nav-btn" data-section="dataset"><span>&#128202;</span> Dataset Analysis</button>
+      <button class="nav-btn" data-section="eda"><span>&#128379;</span> EDA</button>
+      <button class="nav-btn" data-section="training"><span>&#129302;</span> Model Training</button>
+      <button class="nav-btn" data-section="evaluation"><span>&#127919;</span> Evaluation</button>
+      <button class="nav-btn" data-section="comparison"><span>&#9878;&#65039;</span> Model Comparison</button>
+      <button class="nav-btn" data-section="conclusion"><span>&#128204;</span> Conclusion</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div id="dataset-badge" class="badge">Loading dataset&hellip;</div>
+      <a class="muted" href="/api/health" target="_blank">API health check</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="section-title">Dashboard</h2>
+        <p class="sub" id="section-sub">Overview of the project pipeline and live dataset status</p>
+      </div>
+      <div class="actions">
+        <input type="file" id="file-input" accept=".csv" hidden>
+        <button class="btn ghost" id="upload-btn">&#11014;&#65039; Upload CSV</button>
+        <button class="btn primary" id="train-btn">&#9889; Run Training</button>
+      </div>
+    </header>
+
+    <!-- ================= DASHBOARD ================= -->
+    <section id="dashboard" class="panel active">
+      <div class="kpis" id="kpi-grid"></div>
+      <div class="two-col">
+        <div class="card"><h3>Pipeline status</h3><div id="pipeline-status" class="status-list"></div></div>
+        <div class="card"><h3>How to use this dashboard</h3>
+          <ol class="steps">
+            <li><b>Dataset Analysis</b> &ndash; review structure, dtypes and missing values of the loaded dataset.</li>
+            <li><b>EDA</b> &ndash; explore distributions, outliers, correlations and business patterns (all charts are computed live from the CSV).</li>
+            <li><b>Run Training</b> &ndash; executes K-Means + DBSCAN segmentation and 3 supervised churn classifiers on unseen test data (takes ~1-2 min on 50k rows).</li>
+            <li><b>Evaluation / Comparison / Conclusion</b> &ndash; inspect confusion matrices, overfitting analysis and the final model decision.</li>
+            <li><b>Upload CSV</b> &ndash; optionally replace the dataset with your own (same columns required) and re-run everything.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card"><h3>Key auto-generated insights</h3><ul class="insights" id="dash-insights"></ul></div>
+    </section>
+
+    <!-- ================= DATASET ================= -->
+    <section id="dataset" class="panel">
+      <div class="kpis" id="ds-kpis"></div>
+      <div class="two-col">
+        <div class="card"><h3>Column overview</h3>
+          <input class="search" id="col-search" placeholder="Filter columns&hellip;">
+          <div class="table-wrap" id="columns-table"></div></div>
+        <div class="card"><h3>Missing values</h3><div class="table-wrap" id="missing-table"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= EDA ================= -->
+    <section id="eda" class="panel">
+      <div class="card"><h3>Auto-generated insights</h3><ul class="insights" id="eda-insights"></ul></div>
+      <div class="kpis" id="outlier-kpis"></div>
+      <div class="charts-grid">
+        <div class="card"><h3>Age distribution</h3><canvas id="c-age"></canvas></div>
+        <div class="card"><h3>Total spent distribution (USD)</h3><canvas id="c-spent"></canvas></div>
+        <div class="card"><h3>Customer lifetime value (USD)</h3><canvas id="c-clv"></canvas></div>
+        <div class="card"><h3>Recency (days since last purchase)</h3><canvas id="c-recency"></canvas></div>
+        <div class="card"><h3>Churn risk score</h3><canvas id="c-churn"></canvas></div>
+        <div class="card"><h3>Satisfaction score</h3><canvas id="c-satisfaction"></canvas></div>
+        <div class="card"><h3>Customer segments</h3><canvas id="c-segments"></canvas></div>
+        <div class="card"><h3>Churn risk categories</h3><canvas id="c-churncat"></canvas></div>
+        <div class="card"><h3>RFM categories</h3><canvas id="c-rfm"></canvas></div>
+        <div class="card"><h3>Top countries</h3><canvas id="c-countries"></canvas></div>
+        <div class="card"><h3>Shopping channels</h3><canvas id="c-channels"></canvas></div>
+        <div class="card"><h3>Churn risk share by segment (% of segment)</h3><canvas id="c-churnseg"></canvas></div>
+        <div class="card span2"><h3>Total spent vs RFM score (sample of 2,500 customers)</h3><canvas id="c-scatter"></canvas></div>
+        <div class="card span2"><h3>Numeric correlation matrix (Pearson)</h3><div class="table-wrap" id="corr-table"></div></div>
+        <div class="card span2"><h3>Segment profile summary</h3><div class="table-wrap" id="segment-table"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= TRAINING ================= -->
+    <section id="training" class="panel">
+      <div class="empty" id="training-empty">
+        <h3>&#9889; Models not trained yet</h3>
+        <p>Click <b>Run Training</b> in the toolbar to fit K-Means, DBSCAN and the churn classifiers on the loaded dataset.</p>
+      </div>
+      <div id="training-content" hidden>
+        <div class="two-col">
+          <div class="card"><h3>Why these algorithms?</h3>
+            <ul class="prose">
+              <li><b>K-Means</b> - the standard partitional clustering algorithm for Continuous RFM &amp; behavioural data. Fast and scalable on 50,000 rows; k is chosen silhouettically (highest silhouette) instead of guessed.</li>
+              <li><b>DBSCAN</b> - density-based clustering on a 2-component PCA projection. It does not need k and automatically flags sparse customers as <i>noise</i>, making it a useful outlier-lens on the segmentation.</li>
+              <li><b>Churn classification (Logistic Regression, Random Forest, Gradient Boosting)</b> - turning the segmentation into an actionable prediction of the <code>churn_risk_category</code>. A linear baseline (LR) is compared against bagging (RF) and boosting (GB) ensembles, which model non-linear interactions and dominate on tabular data.</li>
+            </ul>
+          </div>
+          <div class="card"><h3>Leakage prevention &amp; train/test design</h3>
+            <ul class="prose">
+              <li>70/30 <b>train-test split</b> applied separately for clustering and classification; the test set is <b>never</b> used for fitting.</li>
+              <li>Scalers, the median imputer, k and eps are all derived <b>from the training fold only</b>.</li>
+              <li>Columns derived directly from the target (<code>churn_risk_score</code>, <code>churn_risk_category</code>, RFM sub-scores, health/CLV proxies) are <b>excluded</b> from churn-training features to avoid label leakage.</li>
+              <li>Stratified split preserves the churn class balance; clustering metrics are reported on unseen test data.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="kpis" id="cluster-kpis"></div>
+        <div class="two-col">
+          <div class="card"><h3>K selection: elbow (inertia) &amp; silhouette</h3><canvas id="c-kselect"></canvas></div>
+          <div class="card"><h3>Customer count per K-Means cluster (train)</h3><canvas id="c-clustercnt"></canvas></div>
+        </div>
+        <div class="card"><h3>K-Means cluster profiles &amp; recommended action</h3><div class="table-wrap" id="cluster-table"></div></div>
+        <div class="card"><h3>Cluster vs RFM category mix (%)</h3><canvas id="c-rfmflow"></canvas></div>
+        <div class="two-col">
+          <div class="card"><h3>DBSCAN (density-based alternative)</h3><div id="dbscan-card"></div></div>
+          <div class="card"><h3>Clustering metrics &mdash; computed on unseen test data</h3><div id="cluster-metrics"></div>
+            <p class="note" id="sil-note"></p></div>
+        </div>
+        <div class="card"><h3>Centroids in original feature units</h3><div class="table-wrap" id="centroid-table"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= EVALUATION ================= -->
+    <section id="evaluation" class="panel">
+      <div class="empty" id="eval-empty">
+        <h3>&#127919; No evaluation yet</h3>
+        <p>Run training first &ndash; evaluation uses the <b>unseen 30% test split</b>.</p>
+      </div>
+      <div id="eval-content" hidden>
+        <div class="card"><h3>Target &amp; setup</h3><div id="eval-target" class="chip-row"></div></div>
+        <div class="kpis" id="eval-kpis"></div>
+        <div class="card"><h3>Class distribution (target: churn_risk_category)</h3><canvas id="c-classdist"></canvas></div>
+        <div id="model-cards"></div>
+        <div class="card"><h3>Feature importance (top 10, Random Forest)</h3><canvas id="c-importance"></canvas></div>
+        <div class="card"><h3>Train vs test &mdash; overfitting / generalization analysis</h3>
+          <canvas id="c-traintest" style="max-height:220px"></canvas>
+          <div id="fit-analysis"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= COMPARISON ================= -->
+    <section id="comparison" class="panel">
+      <div class="empty" id="comp-empty"><h3>&#9878;&#65039; No models to compare yet</h3><p>Run training first.</p></div>
+      <div id="comp-content" hidden>
+        <div class="kpis" id="comp-kpis"></div>
+        <div class="card"><h3>Metrics comparison (test set)</h3><div class="table-wrap" id="comp-table"></div></div>
+        <div class="card"><h3>Metric comparison by model</h3><canvas id="c-compbars"></canvas></div>
+        <div class="card"><h3>Overfit gap (train acc &minus; test acc)</h3><canvas id="c-gapbars"></canvas></div>
+        <div class="card"><h3>Speed vs accuracy</h3><canvas id="c-speed"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ================= CONCLUSION ================= -->
+    <section id="conclusion" class="panel">
+      <div class="empty" id="conc-empty"><h3>&#128204; Run training to generate the conclusion</h3><p>The conclusion text is compiled from your <i>actual</i> trained results.</p></div>
+      <div id="conc-content" hidden>
+        <div class="card"><h3>Final verdict</h3><div id="conc-verdict" class="verdict"></div></div>
+        <div class="two-col">
+          <div class="card"><h3>What the segmentation teaches us</h3><ul class="insights" id="conc-clusters"></ul></div>
+          <div class="card"><h3>What the supervised model teaches us</h3><ul class="insights" id="conc-model"></ul></div>
+        </div>
+        <div class="card"><h3>Business recommendations</h3><ul class="prose" id="conc-actions"></ul></div>
+        <div class="card"><h3>Limitations &amp; future work</h3><ul class="prose">
+          <li>Churn categories are highly imbalanced (e.g. &ldquo;Very High&rdquo; is rare); macro-F1 is reported alongside accuracy so minority classes are not hidden.</li>
+          <li>DBSCAN&rsquo;s single dominant density blob shows the data is strongly dense-central; DBSCAN acts mainly as an outlier detector here.</li>
+          <li>Future work: SHAP explainability, survival analysis for churn timing, cluster-specific uplift campaigns with A/B testing, deployment of the chosen model behind a REST scoring endpoint.</li>
+        </ul></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
